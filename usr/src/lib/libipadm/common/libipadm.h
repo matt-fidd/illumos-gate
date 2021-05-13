@@ -73,6 +73,7 @@ typedef enum {
 	IPADM_GRP_NOTEMPTY,	/* IPMP Group non-empty on unplumb */
 	IPADM_INVALID_ARG,	/* Invalid argument */
 	IPADM_INVALID_NAME,	/* Invalid name */
+	IPADM_DLPI_EPERM,	/* Could not open DLPI link, permission denied*/
 	IPADM_DLPI_FAILURE,	/* Could not open DLPI link */
 	IPADM_DLADM_FAILURE,	/* DLADM error encountered */
 	IPADM_PROP_UNKNOWN,	/* Unknown property */

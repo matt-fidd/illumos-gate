@@ -669,7 +669,7 @@ i_ipadm_plumb_if(ipadm_handle_t iph, char *ifname, sa_family_t af,
     uint32_t ipadm_flags)
 {
 	int		ip_muxid;
-	int		mux_fd = -1, ip_fd, arp_fd;
+	int		mux_fd = -1, ip_fd, arp_fd, ret;
 	char		*udp_dev_name;
 	dlpi_handle_t	dh_arp = NULL, dh_ip;
 	uint64_t	ifflags;
@@ -769,8 +769,12 @@ i_ipadm_plumb_if(ipadm_handle_t iph, char *ifname, sa_family_t af,
 	 * We use DLPI_NOATTACH because the ip module will do the attach
 	 * itself for DLPI style-2 devices.
 	 */
-	if (dlpi_open(linkname, &dh_ip, dlpi_flags) != DLPI_SUCCESS)
+	ret = dlpi_open(linkname, &dh_ip, dlpi_flags);
+	if (ret == DL_SYSERR && errno == EPERM)
+		return (IPADM_DLPI_EPERM);
+	else if (ret != DLPI_SUCCESS)
 		return (IPADM_DLPI_FAILURE);
+
 	ip_fd = dlpi_fd(dh_ip);
 	if (ioctl(ip_fd, I_PUSH, IP_MOD_NAME) == -1) {
 		status = ipadm_errno2status(errno);
@@ -834,7 +838,11 @@ i_ipadm_plumb_if(ipadm_handle_t iph, char *ifname, sa_family_t af,
 	 * We use DLPI_NOATTACH because the arp module will do the attach
 	 * itself for DLPI style-2 devices.
 	 */
-	if (dlpi_open(linkname, &dh_arp, dlpi_flags) != DLPI_SUCCESS) {
+	ret = dlpi_open(linkname, &dh_arp, dlpi_flags);
+	if (ret == DL_SYSERR && errno == EPERM) {
+		status = IPADM_DLPI_EPERM;
+		goto done;
+	} else if (ret != DLPI_SUCCESS) {
 		status = IPADM_DLPI_FAILURE;
 		goto done;
 	}

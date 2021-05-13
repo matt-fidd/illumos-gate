@@ -80,6 +80,7 @@ static struct ipadm_error_info {
 	{ IPADM_GRP_NOTEMPTY,	"IPMP group is not empty" },
 	{ IPADM_INVALID_ARG,	"Invalid argument provided" },
 	{ IPADM_INVALID_NAME,	"Invalid name" },
+	{ IPADM_DLPI_EPERM,	"Could not open DLPI link, permission denied" },
 	{ IPADM_DLPI_FAILURE,	"Could not open DLPI link" },
 	{ IPADM_DLADM_FAILURE,	"Datalink does not exist" },
 	{ IPADM_PROP_UNKNOWN,   "Unknown property" },
