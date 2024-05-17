@@ -41,6 +41,7 @@
 #include <sys/param.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/task.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -167,6 +168,10 @@ error for each of your commands."
 
 #define	MAX_LOST_CONTRACTS	2048	/* reset if this many failed abandons */
 
+/* A more restrictive version of isspace(3C) that only looks for space/tab */
+#define	ISSPACE(x) \
+	((x) == ' ' || (x) == '\t')
+
 #define	FORMAT	"%a %b %e %H:%M:%S %Y"
 static char	timebuf[80];
 
@@ -202,6 +207,26 @@ struct event {
 			int eventid;	/* for el_remove-ing at events	*/
 		} at;
 	} of;
+};
+
+typedef struct alias {
+	const char *a_tag;
+	struct {
+		const char *act_minute;
+		const char *act_hour;
+		const char *act_daymon;
+		const char *act_month;
+		const char *act_dayweek;
+	} a_ct;
+} alias_t;
+
+static alias_t aliases[] = {
+	{ "@hourly",	{ "0", "*", "*", "*", "*" } },
+	{ "@daily",	{ "0", "0", "*", "*", "*" } },
+	{ "@weekly",	{ "0", "0", "*", "*", "7" } },
+	{ "@monthly",	{ "0", "0", "1", "*", "*" } },
+	{ "@yearly",	{ "0", "0", "1", "1", "*" } },
+	{ "@annually",	{ "0", "0", "1", "1", "*" } },
 };
 
 struct usr {
@@ -1158,7 +1183,7 @@ readcron(struct usr *u, time_t reftime)
 		if (cte_istoomany())
 			break;
 		cursor = 0;
-		while (line[cursor] == ' ' || line[cursor] == '\t')
+		while (ISSPACE(line[cursor]))
 			cursor++;
 		if (line[cursor] == '#' || line[cursor] == '\n')
 			continue;
@@ -1228,7 +1253,38 @@ readcron(struct usr *u, time_t reftime)
 		e = xmalloc(sizeof (struct event));
 		e->etype = CRONEVENT;
 
-		if (next_field(0, 59, line, &cursor,
+		if (line[cursor] == '@') {
+			uint_t i;
+			boolean_t found = B_FALSE;
+
+			for (i = 0; i < ARRAY_SIZE(aliases); i++) {
+				alias_t *a = &aliases[i];
+				size_t len = strlen(a->a_tag);
+
+				if (strncmp(&line[cursor], a->a_tag, len)
+				    != 0 || !ISSPACE(line[cursor + len])) {
+					continue;
+				}
+
+				e->of.ct.minute = xstrdup(a->a_ct.act_minute);
+				e->of.ct.hour = xstrdup(a->a_ct.act_hour);
+				e->of.ct.daymon = xstrdup(a->a_ct.act_daymon);
+				e->of.ct.month = xstrdup(a->a_ct.act_month);
+				e->of.ct.dayweek = xstrdup(a->a_ct.act_dayweek);
+
+				found = B_TRUE;
+			}
+
+			if (!found) {
+#ifdef DEBUG
+				(void) fprintf(stderr, "Error: %d %s", lineno,
+				    line);
+#endif
+				free(e);
+				cte_add(lineno, line);
+				continue;
+			}
+		} else if (next_field(0, 59, line, &cursor,
 		    &e->of.ct.minute) != CFOK ||
 		    next_field(0, 23, line, &cursor, &e->of.ct.hour) != CFOK ||
 		    next_field(1, 31, line, &cursor,
@@ -1243,7 +1299,8 @@ readcron(struct usr *u, time_t reftime)
 			cte_add(lineno, line);
 			continue;
 		}
-		while (line[cursor] == ' ' || line[cursor] == '\t')
+
+		while (ISSPACE(line[cursor]))
 			cursor++;
 		if (line[cursor] == '\n' || line[cursor] == '\0')
 			continue;
